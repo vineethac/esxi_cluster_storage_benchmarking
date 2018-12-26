@@ -13,9 +13,12 @@ Begin {
     #Ignore invalid certificate
     Set-PowerCLIConfiguration -InvalidCertificateAction Ignore -Confirm:$false -Verbose
 
+    #Importing manifest
+    $config_data = Import-PowerShellDataFile -Path .\benchmarking_manifest.psd1 -ErrorAction Stop
+    
     try {
         #Connect to VCSA
-        Connect-VIServer -Server $vcenter  
+        Connect-VIServer -Server $config_data.vCenter  
     }
     catch {
         Write-Host "Incorrect vCenter creds!"
@@ -23,15 +26,15 @@ Begin {
     }
 
     #Cluster details
-    $cluster_name = Get-Cluster -Name Cluster01
+    $cluster_name = Get-Cluster -Name $config_data.cluster_name
     $hosts_in_cluster = $cluster_name | Get-VMHost
 
     #Test VM number and parameters
-    $VM_count = 2
+    $VM_count = $config_data.VM_count
 
     #Get template
     #The template named "testvm-win2016-template" should be present
-    $vm_template = Get-Template -Name "testvm-win2016-template" -Verbose
+    $vm_template = Get-Template -Name $config_data.vm_template_name -Verbose
 }
 
 Process {
