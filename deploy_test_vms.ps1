@@ -8,7 +8,7 @@ Begin {
     #Ignore invalid certificate
     Set-PowerCLIConfiguration -InvalidCertificateAction Ignore -Confirm:$false -Verbose
 
-    #Importing manifest
+    #Importing manifest file
     $config_data = Import-PowerShellDataFile -Path .\benchmarking_manifest.psd1 -ErrorAction Stop
     
     try {
