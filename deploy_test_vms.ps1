@@ -4,11 +4,6 @@
 # Version      : 0.1
 # Last Modified: 19/12/2018 (ddMMyyyy)
 
-[CmdletBinding()]
-param(
-    [Parameter(Mandatory)]
-    [String]$vcenter
-)
 Begin {
     #Ignore invalid certificate
     Set-PowerCLIConfiguration -InvalidCertificateAction Ignore -Confirm:$false -Verbose
@@ -59,8 +54,6 @@ Process {
             Invoke-VMScript -VM $VM_name -ScriptText { Initialize-Disk -Number 1 -PartitionStyle GPT;
                 New-Partition -DiskNumber 1 -UseMaximumSize -DriveLetter E;
                 Get-Volume | where DriveLetter -eq E | Format-Volume -FileSystem NTFS -NewFileSystemLabel Test_disk -confirm:$false  } -ScriptType Powershell -GuestUser administrator -GuestPassword Dell1234 
-
-
         }
     }
 }
