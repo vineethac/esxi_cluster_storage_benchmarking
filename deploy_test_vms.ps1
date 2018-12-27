@@ -60,6 +60,6 @@ Process {
 
 End {
     #Disconnect session
-    Disconnect-VIServer $vcenter -Confirm:$false
+    Disconnect-VIServer $config_data.vCenter -Confirm:$false
 }
 
