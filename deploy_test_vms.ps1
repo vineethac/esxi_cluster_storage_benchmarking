@@ -13,7 +13,7 @@ Begin {
     
     try {
         #Connect to VCSA
-        Connect-VIServer -Server $config_data.vCenter  
+        Connect-VIServer -Server $config_data.vcenter  
     }
     catch {
         Write-Host "Incorrect vCenter creds!"
@@ -50,6 +50,9 @@ Process {
             #Start VM
             Get-VM -Name $VM_name | Start-VM
             
+            #Add few seconds wait time for VMtools to load (a check to be added here)
+            Start-Sleep 3
+
             #Create stress disk and format volume
             Invoke-VMScript -VM $VM_name -ScriptText { Initialize-Disk -Number 1 -PartitionStyle GPT;
                 New-Partition -DiskNumber 1 -UseMaximumSize -DriveLetter E;

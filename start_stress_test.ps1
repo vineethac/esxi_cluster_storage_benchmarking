@@ -10,6 +10,7 @@ Begin {
 
     #Importing manifest file
     $config_data = Import-PowerShellDataFile -Path .\benchmarking_manifest.psd1 -ErrorAction Stop
+    $profile_data = Import-PowerShellDataFile -Path .\manifest2.psd1 -ErrorAction Stop
     
     try {
         #Connect to VCSA
@@ -22,16 +23,24 @@ Begin {
 }
 
 Process {
-    #Invoke diskspd on each stress-test-vm
-    get-vm -Name stress-test-vm* | ForEach-Object {Invoke-VMScript -VM $_ -ScriptText  "C:\diskspd.exe -b$($config_data.block_size) -d$($config_data.duration_in_sec) -t$($config_data.threads) -o$($config_data.OIO) -h -r -w$($config_data.write_percent) -L -Z500M -c$($config_data.workload_file_size) E:\io_stress.dat > C:\$_.txt" -ScriptType Powershell -GuestUser administrator -GuestPassword Dell1234 -RunAsync -Verbose -confirm:$false}
+    #Get all profile data keys
+    $all_keys = $profile_data.GetEnumerator() | ForEach-Object {$_.Key}
+
+    #For reach profile defined in manifest2 do following
+    for ($i=0; $i -lt $profile_data.Keys.Count; $i++) {
+        #Invoke diskspd on each stress-test-vm
+        get-vm -Name stress-test-vm* | ForEach-Object {Invoke-VMScript -VM $_ -ScriptText  "C:\diskspd.exe -b$($profile_data.$($all_keys[$i]).block_size) -d$($profile_data.$($all_keys[$i]).duration_in_sec) -t$($profile_data.$($all_keys[$i]).threads) -o$($profile_data.$($all_keys[$i]).OIO) -h -r -w$($profile_data.$($all_keys[$i]).write_percent) -L -Z500M -c$($profile_data.$($all_keys[$i]).workload_file_size) E:\io_stress.dat > C:\$_.txt" -ScriptType Powershell -GuestUser administrator -GuestPassword Dell1234 -RunAsync -Verbose -confirm:$false}
+        
+        #Waiting till test duration
+        Write-Host "$($all_keys[$i]): Storage stress test in progress. Test duration: $($profile_data.$($all_keys[$i]).duration_in_sec) seconds. Please wait!" -ForegroundColor Cyan
+        Start-Sleep (($profile_data.$($all_keys[$i]).duration_in_sec)+10) -Verbose
+        
+        #Copy diskspd logs from stress-test-vms to local machine
+        Write-Host "Copying diskspd logs to local machine"
+        $foldername =(Get-Date).tostring("dd-MM-yyyy-hh-mm-ss")+$all_keys[$i]
+        get-vm -Name stress-test-vm* | ForEach-Object {Copy-VMGuestFile -Source c:\$_.txt -Destination c:\temp\$foldername\ -VM $_ -GuestToLocal -HostUser vineetha -HostPassword Dell1234 -GuestUser administrator -GuestPassword Dell1234 -Force}
     
-    #Waiting till test duration
-    Write-Host "Storage stress test in progress. Test duration: $($config_data.duration_in_sec) seconds." -ForegroundColor Cyan
-    Start-Sleep (($config_data.duration_in_sec)+10) -Verbose
-    
-    #Copy diskspd logs from stress-test-vms to local machine
-    $foldername =(Get-Date).tostring("dd-MM-yyyy-hh-mm-ss")
-    get-vm -Name stress-test-vm* | ForEach-Object {Copy-VMGuestFile -Source c:\$_.txt -Destination c:\temp\$foldername\ -VM $_ -GuestToLocal -HostUser vineetha -HostPassword Dell1234 -GuestUser administrator -GuestPassword Dell1234 -Force}
+    }
 }
 
 End {
