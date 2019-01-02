@@ -33,13 +33,14 @@ Process {
         
         #Waiting till test duration
         Write-Host "$($all_keys[$i]): Storage stress test in progress. Test duration: $($profile_data.$($all_keys[$i]).duration_in_sec) seconds. Please wait!" -ForegroundColor Cyan
-        Start-Sleep (($profile_data.$($all_keys[$i]).duration_in_sec)+10) -Verbose
+        Start-Sleep (($profile_data.$($all_keys[$i]).duration_in_sec)+30) -Verbose
         
         #Copy diskspd logs from stress-test-vms to local machine
         Write-Host "Copying diskspd logs to local machine"
-        $foldername =(Get-Date).tostring("dd-MM-yyyy-hh-mm-ss")+$all_keys[$i]
-        get-vm -Name stress-test-vm* | ForEach-Object {Copy-VMGuestFile -Source c:\$_.txt -Destination c:\temp\$foldername\ -VM $_ -GuestToLocal -HostUser vineetha -HostPassword Dell1234 -GuestUser administrator -GuestPassword Dell1234 -Force}
-    
+        $foldername =(Get-Date).tostring("dd-MM-yyyy-hh-mm-ss")+"-"+$all_keys[$i]
+        get-vm -Name stress-test-vm* | ForEach-Object {Copy-VMGuestFile -Source c:\$_.txt -Destination c:\temp\$foldername\ -VM $_ -GuestToLocal -HostUser vineetha -HostPassword Dell1234 -GuestUser administrator -GuestPassword Dell1234 -Force -ToolsWaitSecs 30}
+        
+        Start-Sleep 10
     }
 }
 
