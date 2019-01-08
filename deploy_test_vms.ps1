@@ -45,7 +45,7 @@ Process {
             
             #Create VM
             $VM_name = "stress-test-vm-$host_name-$j"
-            New-VM -Name $VM_name -VMHost $host_name -ResourcePool $cluster_name -Datastore $datastore_name -Template $vm_template | New-HardDisk -CapacityGB $config_data.disk_size -Persistence persistent | New-ScsiController -Type ParaVirtual -Verbose
+            New-VM -Name $VM_name -VMHost $host_name -ResourcePool $cluster_name -Datastore $datastore_name -Template $vm_template | New-HardDisk -CapacityGB $config_data.disk_size -StorageFormat EagerZeroedThick -Persistence persistent | New-ScsiController -Type ParaVirtual -Verbose
             
             #Start VM
             Get-VM -Name $VM_name | Start-VM
