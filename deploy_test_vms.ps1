@@ -56,7 +56,7 @@ Process {
             #Create stress disk and format volume
             Invoke-VMScript -VM $VM_name -ScriptText { Initialize-Disk -Number 1 -PartitionStyle GPT;
                 New-Partition -DiskNumber 1 -UseMaximumSize -DriveLetter E;
-                Get-Volume | where DriveLetter -eq E | Format-Volume -FileSystem NTFS -NewFileSystemLabel Test_disk -confirm:$false  } -ScriptType Powershell -GuestUser administrator -GuestPassword Dell1234 
+                Get-Volume | where DriveLetter -eq E | Format-Volume -FileSystem NTFS -AllocationUnitSize 65536 -NewFileSystemLabel Test_disk -confirm:$false  } -ScriptType Powershell -GuestUser administrator -GuestPassword Dell1234 
         }
     }
 }
