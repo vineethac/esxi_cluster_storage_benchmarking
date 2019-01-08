@@ -25,7 +25,7 @@ Begin {
     $hosts_in_cluster = $cluster_name | Get-VMHost
 
     #Test VM number and parameters
-    $VM_count = $config_data.VM_count
+    $VM_count = $config_data.VM_count_per_host
 
     #Get template
     #The template named "testvm-win2016-template" should be present

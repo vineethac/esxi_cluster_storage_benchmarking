@@ -10,7 +10,7 @@ Begin {
 
     #Importing manifest file
     $config_data = Import-PowerShellDataFile -Path .\benchmarking_manifest.psd1 -ErrorAction Stop
-    $profile_data = Import-PowerShellDataFile -Path .\manifest2.psd1 -ErrorAction Stop
+    $profile_data = Import-PowerShellDataFile -Path .\profile_manifest.psd1 -ErrorAction Stop
     
     try {
         #Connect to VCSA
