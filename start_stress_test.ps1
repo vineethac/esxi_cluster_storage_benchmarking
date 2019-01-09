@@ -14,10 +14,10 @@ Begin {
     
     try {
         #Connect to VCSA
-        Connect-VIServer -Server $config_data.vCenter  
+        Connect-VIServer -Server $config_data.vCenter -ErrorAction Stop
     }
     catch {
-        Write-Host "Incorrect vCenter creds!"
+        Write-Error "Incorrect vCenter creds!" -ErrorAction Stop
         $PSCmdlet.ThrowTerminatingError($PSItem)
     }
 }

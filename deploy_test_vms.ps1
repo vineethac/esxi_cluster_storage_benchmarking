@@ -13,11 +13,11 @@ Begin {
     
     try {
         #Connect to VCSA
-        Connect-VIServer -Server $config_data.vcenter  
+        Connect-VIServer -Server $config_data.vcenter -ErrorAction Stop
     }
     catch {
-        Write-Host "Incorrect vCenter creds!"
         $PSCmdlet.ThrowTerminatingError($PSItem)
+        Write-Error "Incorrect vCenter creds!" -ErrorAction Stop
     }
 
     #Cluster details
@@ -45,8 +45,9 @@ Process {
             
             #Create VM
             $VM_name = "stress-test-vm-$host_name-$j"
-            New-VM -Name $VM_name -VMHost $host_name -ResourcePool $cluster_name -Datastore $datastore_name -Template $vm_template | New-HardDisk -CapacityGB $config_data.disk_size -StorageFormat EagerZeroedThick -Persistence persistent | New-ScsiController -Type ParaVirtual -Verbose
-            
+            New-VM -Name $VM_name -VMHost $host_name -ResourcePool $cluster_name -Datastore $datastore_name -Template $vm_template -Verbose | New-HardDisk -CapacityGB $config_data.disk_size -StorageFormat EagerZeroedThick -Persistence persistent -Verbose | New-ScsiController -Type ParaVirtual -Verbose
+            Write-Verbose -Message "$VM_name created" -Verbose
+
             #Start VM
             Get-VM -Name $VM_name | Start-VM -Verbose
             
@@ -57,9 +58,11 @@ Process {
             Invoke-VMScript -VM $VM_name -ScriptText { Initialize-Disk -Number 1 -PartitionStyle GPT;
                 New-Partition -DiskNumber 1 -UseMaximumSize -DriveLetter E;
                 Get-Volume | where DriveLetter -eq E | Format-Volume -FileSystem NTFS -AllocationUnitSize 65536 -NewFileSystemLabel Test_disk -confirm:$false  } -ScriptType Powershell -GuestUser administrator -GuestPassword Dell1234 -Verbose 
-            
+            Write-Verbose -Message "Drive E initialized partitioned and formatted as NTFS with AUS 64K" -Verbose
+
             #Set pvscsi queue depth to 254
             Invoke-VMScript -VM $VM_name -ScriptText { REG ADD HKLM\SYSTEM\CurrentControlSet\services\pvscsi\Parameters \Device /v DriverParameter /t REG_SZ /d "RequestRingPages=32,MaxQueueDepth=254" } -ScriptType Powershell -GuestUser administrator -GuestPassword Dell1234 -Verbose
+            Write-Verbose -Message "pvscsi queue depth set to 254" -Verbose
 
             Get-VM -Name $VM_name | Restart-VMGuest -Verbose
         }
