@@ -48,15 +48,20 @@ Process {
             New-VM -Name $VM_name -VMHost $host_name -ResourcePool $cluster_name -Datastore $datastore_name -Template $vm_template | New-HardDisk -CapacityGB $config_data.disk_size -StorageFormat EagerZeroedThick -Persistence persistent | New-ScsiController -Type ParaVirtual -Verbose
             
             #Start VM
-            Get-VM -Name $VM_name | Start-VM
+            Get-VM -Name $VM_name | Start-VM -Verbose
             
             #Add few seconds wait time for VMtools to load (a check to be added here)
-            Start-Sleep 3
+            Start-Sleep 3 -Verbose
 
             #Create stress disk and format volume
             Invoke-VMScript -VM $VM_name -ScriptText { Initialize-Disk -Number 1 -PartitionStyle GPT;
                 New-Partition -DiskNumber 1 -UseMaximumSize -DriveLetter E;
-                Get-Volume | where DriveLetter -eq E | Format-Volume -FileSystem NTFS -AllocationUnitSize 65536 -NewFileSystemLabel Test_disk -confirm:$false  } -ScriptType Powershell -GuestUser administrator -GuestPassword Dell1234 
+                Get-Volume | where DriveLetter -eq E | Format-Volume -FileSystem NTFS -AllocationUnitSize 65536 -NewFileSystemLabel Test_disk -confirm:$false  } -ScriptType Powershell -GuestUser administrator -GuestPassword Dell1234 -Verbose 
+            
+            #Set pvscsi queue depth to 254
+            Invoke-VMScript -VM $VM_name -ScriptText { REG ADD HKLM\SYSTEM\CurrentControlSet\services\pvscsi\Parameters \Device /v DriverParameter /t REG_SZ /d "RequestRingPages=32,MaxQueueDepth=254" } -ScriptType Powershell -GuestUser administrator -GuestPassword Dell1234 -Verbose
+
+            Get-VM -Name $VM_name | Restart-VMGuest -Verbose
         }
     }
 }
