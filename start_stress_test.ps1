@@ -32,15 +32,18 @@ Process {
         get-vm -Name stress-test-vm* | ForEach-Object {Invoke-VMScript -VM $_ -ScriptText  "C:\diskspd.exe -b$($profile_data.$($all_keys[$i]).block_size) -d$($profile_data.$($all_keys[$i]).duration_in_sec) -t$($profile_data.$($all_keys[$i]).threads) -o$($profile_data.$($all_keys[$i]).OIO) -h -r -w$($profile_data.$($all_keys[$i]).write_percent) -L -Z500M -c$($profile_data.$($all_keys[$i]).workload_file_size) E:\io_stress.dat > C:\$_.txt" -ScriptType Powershell -GuestUser administrator -GuestPassword Dell1234 -RunAsync -Verbose -confirm:$false}
         
         #Waiting till test duration
-        Write-Host "$($all_keys[$i]): Storage stress test in progress. Test duration: $($profile_data.$($all_keys[$i]).duration_in_sec) seconds. Please wait!" -ForegroundColor Cyan
+        Write-Verbose "$($all_keys[$i]): Storage stress test in progress. Test duration: $($profile_data.$($all_keys[$i]).duration_in_sec) seconds. Please wait!" -Verbose
         Start-Sleep (($profile_data.$($all_keys[$i]).duration_in_sec)+30) -Verbose
         
         #Copy diskspd logs from stress-test-vms to local machine
-        Write-Host "Copying diskspd logs to local machine"
-        $foldername =(Get-Date).tostring("dd-MM-yyyy-hh-mm-ss")+"-"+$all_keys[$i]
-        get-vm -Name stress-test-vm* | ForEach-Object {Copy-VMGuestFile -Source c:\$_.txt -Destination c:\temp\$foldername\ -VM $_ -GuestToLocal -HostUser vineetha -HostPassword Dell1234 -GuestUser administrator -GuestPassword Dell1234 -Force -ToolsWaitSecs 30}
+        Write-Verbose "Copying diskspd logs to local machine" -Verbose
+        $foldername = (Get-Date).tostring("dd-MM-yyyy-hh-mm-ss")+"-"+$all_keys[$i]
+        get-vm -Name stress-test-vm* | ForEach-Object {Copy-VMGuestFile -Source c:\$_.txt -Destination c:\temp\$foldername\ -VM $_ -GuestToLocal -HostUser vineetha -HostPassword Dell1234 -GuestUser administrator -GuestPassword Dell1234 -Force -ToolsWaitSecs 30} -Verbose
         
-        Start-Sleep 10
+        Start-Sleep 10 -Verbose
+        Write-Verbose "Restarting all stress-test-vms"
+        Get-VM -Name stress-test-vm* | Restart-VMGuest
+        Start-Sleep 10 -Verbose
     }
 }
 
