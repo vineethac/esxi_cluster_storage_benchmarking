@@ -16,8 +16,8 @@ Begin {
         Connect-VIServer -Server $config_data.vcenter -ErrorAction Stop
     }
     catch {
-        $PSCmdlet.ThrowTerminatingError($PSItem)
         Write-Error "Incorrect vCenter creds!" -ErrorAction Stop
+        $PSCmdlet.ThrowTerminatingError($PSItem)
     }
 
     #Cluster details
@@ -54,10 +54,13 @@ Process {
             #Add few seconds wait time for VMtools to load (a check to be added here)
             Start-Sleep 5 -Verbose
 
-            #Create stress disk and format volume
-            Invoke-VMScript -VM $VM_name -ScriptText { Initialize-Disk -Number 1 -PartitionStyle GPT;
-                New-Partition -DiskNumber 1 -UseMaximumSize -DriveLetter E;
-                Get-Volume | where DriveLetter -eq E | Format-Volume -FileSystem NTFS -AllocationUnitSize 65536 -NewFileSystemLabel Test_disk -confirm:$false  } -ScriptType Powershell -GuestUser administrator -GuestPassword Dell1234 -Verbose -ToolsWaitSecs 60
+            #Initialize and partition stress disk
+            Invoke-VMScript -VM $VM_name -ScriptText {Initialize-Disk -Number 1 -PartitionStyle GPT;
+            New-Partition -DiskNumber 1 -UseMaximumSize -DriveLetter E} -ScriptType Powershell -GuestUser administrator -GuestPassword Dell1234 -Verbose -ToolsWaitSecs 60
+            
+            #Format stress disk and set aus
+            $aus = $config_data.disk_aus_in_bytes
+            Invoke-VMScript -VM $VM_name -ScriptText "Format-Volume -DriveLetter E -FileSystem NTFS -AllocationUnitSize '$aus' -NewFileSystemLabel Test_disk" -ScriptType Powershell -GuestUser administrator -GuestPassword Dell1234 -Verbose -ToolsWaitSecs 60
             Write-Verbose -Message "Drive E initialized partitioned and formatted as NTFS with AUS 64K" -Verbose
 
             #Set pvscsi queue depth to 254
