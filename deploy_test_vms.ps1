@@ -52,22 +52,21 @@ Process {
             Get-VM -Name $VM_name | Start-VM -Verbose
             
             #Add few seconds wait time for VMtools to load (a check to be added here)
-            Start-Sleep 3 -Verbose
+            Start-Sleep 5 -Verbose
 
             #Create stress disk and format volume
             Invoke-VMScript -VM $VM_name -ScriptText { Initialize-Disk -Number 1 -PartitionStyle GPT;
                 New-Partition -DiskNumber 1 -UseMaximumSize -DriveLetter E;
-                Get-Volume | where DriveLetter -eq E | Format-Volume -FileSystem NTFS -AllocationUnitSize 65536 -NewFileSystemLabel Test_disk -confirm:$false  } -ScriptType Powershell -GuestUser administrator -GuestPassword Dell1234 -Verbose 
+                Get-Volume | where DriveLetter -eq E | Format-Volume -FileSystem NTFS -AllocationUnitSize 65536 -NewFileSystemLabel Test_disk -confirm:$false  } -ScriptType Powershell -GuestUser administrator -GuestPassword Dell1234 -Verbose -ToolsWaitSecs 60
             Write-Verbose -Message "Drive E initialized partitioned and formatted as NTFS with AUS 64K" -Verbose
 
-            <#
             #Set pvscsi queue depth to 254
-            $set_pvscsi_cmd = 'REG ADD HKLM\SYSTEM\CurrentControlSet\services\pvscsi\Parameters \Device /v DriverParameter /t REG_SZ /d "RequestRingPages=32,MaxQueueDepth=254"'
-            Invoke-VMScript -VM $VM_name -ScriptText $set_pvscsi_cmd -ScriptType Powershell -GuestUser administrator -GuestPassword Dell1234 -Verbose
+            $set_pvscsi_cmd = 'REG ADD HKLM\SYSTEM\CurrentControlSet\services\pvscsi\Parameters\Device /v DriverParameter /t REG_SZ /d "RequestRingPages=32,MaxQueueDepth=254"'
+            Invoke-VMScript -VM $VM_name -ScriptText $set_pvscsi_cmd -ScriptType Powershell -GuestUser administrator -GuestPassword Dell1234 -Verbose -ToolsWaitSecs 60
             Write-Verbose -Message "pvscsi queue depth set to 254" -Verbose
 
             Get-VM -Name $VM_name | Restart-VMGuest -Verbose
-            #>
+            
         }
     }
 }
