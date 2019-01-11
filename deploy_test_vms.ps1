@@ -65,8 +65,8 @@ Process {
             Invoke-VMScript -VM $VM_name -ScriptText $set_pvscsi_cmd -ScriptType Powershell -GuestUser administrator -GuestPassword Dell1234 -Verbose -ToolsWaitSecs 60
             Write-Verbose -Message "pvscsi queue depth set to 254" -Verbose
 
+            #Reboot VM
             Get-VM -Name $VM_name | Restart-VMGuest -Verbose
-            
         }
     }
 }
