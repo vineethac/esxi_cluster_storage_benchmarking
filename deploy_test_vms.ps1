@@ -23,6 +23,13 @@ Begin {
     #Cluster details
     $cluster_name = Get-Cluster -Name $config_data.cluster_name
     $hosts_in_cluster = $cluster_name | Get-VMHost
+    
+    #DRS check
+    if ("$($cluster_name.DrsEnabled)" -eq 'False') {
+        #Disconnect session
+        Disconnect-VIServer $config_data.vCenter -Confirm:$false
+        Write-Error -Message "Disable DRS and re-run the script!" -ErrorAction Stop
+    }
 
     #Test VM number and parameters
     $VM_count = $config_data.VM_count_per_host
