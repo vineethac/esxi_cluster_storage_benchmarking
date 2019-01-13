@@ -25,7 +25,7 @@ Begin {
     $hosts_in_cluster = $cluster_name | Get-VMHost
     
     #DRS check
-    if ("$($cluster_name.DrsEnabled)" -eq 'False') {
+    if ("$($cluster_name.DrsEnabled)" -eq 'True') {
         #Disconnect session
         Disconnect-VIServer $config_data.vCenter -Confirm:$false
         Write-Error -Message "Disable DRS and re-run the script!" -ErrorAction Stop

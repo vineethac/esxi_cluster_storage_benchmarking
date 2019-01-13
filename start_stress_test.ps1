@@ -20,6 +20,16 @@ Begin {
         Write-Error "Incorrect vCenter creds!" -ErrorAction Stop
         $PSCmdlet.ThrowTerminatingError($PSItem)
     }
+
+    #Cluster details
+    $cluster_name = Get-Cluster -Name $config_data.cluster_name
+        
+    #DRS check
+    if ("$($cluster_name.DrsEnabled)" -eq 'True') {
+        #Disconnect session
+        Disconnect-VIServer $config_data.vCenter -Confirm:$false
+        Write-Error -Message "Disable DRS and re-run the script!" -ErrorAction Stop
+    }
 }
 
 Process {
