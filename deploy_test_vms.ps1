@@ -31,12 +31,22 @@ Begin {
         Write-Error -Message "Disable DRS and re-run the script!" -ErrorAction Stop
     }
 
+    #Check for number of datastores equals number of hosts in cluster
+    if($hosts_in_cluster.Count -ne $config_data.datastore_names.Count) {
+        #Disconnect session
+        Disconnect-VIServer $config_data.vCenter -Confirm:$false
+        Write-Error -Message "Number of datastores should be equal to number of hosts in the cluster!" -ErrorAction Stop
+    }
+
     #Test VM number and parameters
     $VM_count = $config_data.VM_count_per_host
 
+    #Datastore list
+    $datastore_list = $config_data.datastore_names
+
     #Get template
     #The template named "testvm-win2016-template" should be present
-    $vm_template = Get-Template -Name $config_data.vm_template_name -Verbose
+    $vm_template = Get-Template -Name $config_data.vm_template_name -Verbose -ErrorAction Stop
 }
 
 Process {
@@ -44,7 +54,7 @@ Process {
     for ($i=1; $i -le $hosts_in_cluster.Count; $i++) {
         
         #Test datastore name needs to be generalized
-        $datastore_name = "vol0$i"
+        $datastore_name = $datastore_list[$i-1]
         $host_name = $hosts_in_cluster.Name[$i-1]
 
         #Loop for deploying testvms on each host
