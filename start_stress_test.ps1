@@ -57,7 +57,7 @@ Process {
         #Waiting till test duration
         Write-Verbose "$($all_keys[$i]): Storage stress test in progress. Test duration: $($profile_data.$($all_keys[$i]).duration_in_sec) seconds. Please wait!" -Verbose
         
-        Write-Verbose -Message "Collecting datastore logs now" -Verbose
+        Write-Verbose -Message "Collecting datastore level logs of $($all_keys[$i]) test" -Verbose
 
         #Test run time
         $test_duration = $profile_data.$($all_keys[$i]).duration_in_sec

@@ -6,9 +6,7 @@ Function datastore_stats ($list1, $list2, $test_duration) {
 
     Begin {
         
-        Write-Host $list1
-        Write-Host $list2
-        Write-Host $test_duration
+        #Might need to refactor this function!
     }
 
     Process {
