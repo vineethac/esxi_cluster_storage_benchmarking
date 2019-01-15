@@ -1,7 +1,7 @@
 #Function to collect datastore stats
 #$list1 contains list of datastore names
 #$list2 contains list of esxi host names
-
+#$test_duration is the time for each profile run in seconds
 Function datastore_stats ($list1, $list2, $test_duration) {
 
     Begin {
@@ -70,8 +70,10 @@ Function datastore_stats ($list1, $list2, $test_duration) {
             $result = $list2 | ForEach-Object { datastore_perf -host_name $PSItem }
             #$result | Out-File -FilePath C:\temp\datastore_stats.txt -Append
             $logs+=$result
-            $lines = "---------------------------------------------------------"
-            $logs+=$lines
+
+            $time_stamp =(Get-Date).tostring("dd-MM-yyyy-hh-mm-ss")
+            $line_break = "********** $time_stamp **********"
+            $logs+=$line_break
             Start-Sleep -Seconds 1
         }
         Until ($TimeNow -ge $TimeEnd)
