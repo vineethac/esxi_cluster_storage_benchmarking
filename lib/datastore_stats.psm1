@@ -75,9 +75,153 @@ Function datastore_stats ($list1, $list2, $test_duration) {
             Start-Sleep -Seconds 1
         }
         Until ($TimeNow -ge $TimeEnd)
+        
+        #Write-Verbose -Message "Datastore level log collection completed" -Verbose
         return $logs
              
         
     }
-
 }
+
+#Function to connect to VxFlex OS REST API
+Function Connect_VxFlexOS {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [String]$gateway,
+        $Credentials
+    )
+    Process {
+        #To fix the connection issues to scaleio rest api
+        add-type @"
+        using System.Net;
+        using System.Security.Cryptography.X509Certificates;
+        public class TrustAllCertsPolicy : ICertificatePolicy {
+        public bool CheckValidationResult(
+            ServicePoint srvPoint, X509Certificate certificate,
+            WebRequest request, int certificateProblem) {
+            return true;
+            }
+        }
+"@
+        [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
+        [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12 -bor [System.Net.SecurityProtocolType]::Tls11
+
+        #authentication step with AMS server and token generation
+        
+        
+        #token generation
+        try { 
+            Write-Verbose -Message "Prerequisite - creating token" -Verbose
+            Write-Verbose -Message "Connecting to ScaleIO Gateway: $gateway" -Verbose
+            $Token = Invoke-RestMethod -Uri "https://$($gateway):443/api/login" -Method Get -Credential $Credentials 
+        }
+        catch {
+            Write-Error -Message "Failed to create token. Quiting!" -ErrorAction Stop -Verbose
+            #Write-VerboseLog -ErrorInfo $PSItem
+            #Stop-Transcript
+            $PSCmdlet.ThrowTerminatingError($PSItem)
+        }
+
+        #creating header
+        try {
+            $auth = [System.Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes(':'+$Token))
+            $global:ScaleIOAuthHeaders = @{'Authorization' = "Basic $auth" 
+            'Content-Type' = "application/json" }
+            Write-Verbose -Message "Header created" -Verbose
+            return $global:ScaleIOAuthHeaders
+
+            }
+        catch {
+            Write-Error -Message "Failed creating auth header. Quiting!" -ErrorAction Stop -Verbose
+            #Write-VerboseLog -ErrorInfo $PSItem
+            #Stop-Transcript
+            $PSCmdlet.ThrowTerminatingError($PSItem)
+        }
+    }
+}
+
+#Function to collect VxFlex OS PD perf logs
+Function PD_perf_logs {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        $gateway,
+        $ScaleIOAuthHeaders,
+        $PD_id,
+        $test_duration
+    )
+
+    Begin {
+        
+        #To fix the connection issues to scaleio rest api
+        add-type @"
+        using System.Net;
+        using System.Security.Cryptography.X509Certificates;
+        public class TrustAllCertsPolicy : ICertificatePolicy {
+        public bool CheckValidationResult(
+            ServicePoint srvPoint, X509Certificate certificate,
+            WebRequest request, int certificateProblem) {
+            return true;
+            }
+        }
+"@
+        [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
+        [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12 -bor [System.Net.SecurityProtocolType]::Tls11
+
+        $param1 = @'
+        {
+            "allIds":[""],"properties":["primaryReadBwc","primaryWriteBwc"]
+        }
+'@ 
+        $logs2 =@()
+
+        $time_stamp =(Get-Date).tostring("dd-MM-yyyy-hh-mm-ss")
+        $line_break = "********** $time_stamp **********"
+        $logs2+=$line_break
+    }
+    Process {
+
+        
+        #setup loop
+        $TimeStart = Get-Date
+        $TimeEnd = $timeStart.AddSeconds($test_duration)
+        
+        Do { 
+            $TimeNow = Get-Date
+            $PD_perf_logs = (Invoke-RestMethod -Uri "https://$($gateway):443/api/types/ProtectionDomain/instances/action/querySelectedStatistics" -Body $param1 -ContentType "application/json" -Headers $ScaleIOAuthHeaders -Method Post)    
+            
+            
+            if(($PD_perf_logs.$($PD_id).primaryReadBwc.numSeconds) -ne '0' -And ($PD_perf_logs.$($PD_id).primaryReadBwc.numSeconds) -ne '0') {
+                $read_IOPS = ($PD_perf_logs.$($PD_id).primaryReadBwc.numOccured)/($PD_perf_logs.$($PD_id).primaryReadBwc.numSeconds)
+                $write_IOPS = ($PD_perf_logs.$($PD_id).primaryWriteBwc.numOccured)/($PD_perf_logs.$($PD_id).primaryWriteBwc.numSeconds)
+                $read_bw_in_Kb = ($PD_perf_logs.$($PD_id).primaryReadBwc.totalWeightInKb)/($PD_perf_logs.$($PD_id).primaryReadBwc.numSeconds)
+                $write_bw_in_Kb = ($PD_perf_logs.$($PD_id).primaryWriteBwc.totalWeightInKb)/($PD_perf_logs.$($PD_id).primaryWriteBwc.numSeconds)
+            }
+            $PD_stat_object = New-Object System.Object
+
+            $PD_stat_object | Add-Member -Type NoteProperty -Name PD_ID -Value "$PD_id"
+            $PD_stat_object | Add-Member -Type NoteProperty -Name Read_IOPS -Value "$read_IOPS"
+            $PD_stat_object | Add-Member -Type NoteProperty -Name Write_IOPS -Value "$write_IOPS"
+            $PD_stat_object | Add-Member -Type NoteProperty -Name Read_BW_in_MB -Value "$read_bw_in_Kb/1024"
+            $PD_stat_object | Add-Member -Type NoteProperty -Name Write_BW_in_MB -Value "$write_bw_in_Kb/1024"
+
+
+
+            $logs2+=$PD_stat_object
+            
+            Start-Sleep -Seconds 5
+        }
+        Until ($TimeNow -ge $TimeEnd)
+        
+        $time_stamp =(Get-Date).tostring("dd-MM-yyyy-hh-mm-ss")
+        $line_break = "********** $time_stamp **********"
+        $logs2+=$line_break
+        
+        #Write-Verbose -Message "PD log collection completed" -Verbose
+        return ($logs2 | Format-Table)
+
+        
+    }
+    
+}    

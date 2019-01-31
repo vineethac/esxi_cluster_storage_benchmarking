@@ -44,4 +44,15 @@
 
     }
 
+    'profile05' = @{
+        #diskspd test parameters
+        block_size          = '64k'
+        duration_in_sec     = 300
+        threads             = 4
+        OIO                 = 16
+        write_percent       = 30
+        workload_file_size  = '4G'
+
+    }
+
 }
