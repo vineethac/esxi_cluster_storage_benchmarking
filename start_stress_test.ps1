@@ -40,21 +40,16 @@ Begin {
         Disconnect-VIServer $config_data.vCenter -Confirm:$false
         Write-Error -Message "Disable DRS and re-run the script!" -ErrorAction Stop
     }
-
     
-    #For connecting to VxFlex OS gateway ***** new
-    #collecting gw creds
+    #Collecting VxFlex OS GW creds
     try {
-        Write-Verbose -Message "Collecting ScaleIO Gateway Creds" -Verbose
-        $Credentials = Get-Credential -Message "Enter ScaleIO G/W Creds"
+        Write-Verbose -Message "Collecting VxFlex OS Gateway Creds" -Verbose
+        $Credentials = Get-Credential -Message "Enter VxFlex OS G/W Creds"
     }
     catch {
         Write-Error -Message "[EndRegion] Failed collecting gateway creds. Exiting!" -Verbose -ErrorAction Stop
-        #Write-VerboseLog -ErrorInfo $PSItem
-        #Stop-Transcript
         $PSCmdlet.ThrowTerminatingError($PSItem)
     }
-    
         
 }
 
@@ -67,16 +62,23 @@ Process {
 
     #For reach profile defined in manifest2 do following
     for ($i=0; $i -lt $profile_data.Keys.Count; $i++) {
-        #Invoke diskspd on each stress-test-vm
-        get-vm -Name stress-test-vm* | ForEach-Object {Invoke-VMScript -VM $_ -ScriptText  "C:\diskspd.exe -b$($profile_data.$($all_keys[$i]).block_size) -d$($profile_data.$($all_keys[$i]).duration_in_sec) -t$($profile_data.$($all_keys[$i]).threads) -o$($profile_data.$($all_keys[$i]).OIO) -h -r -w$($profile_data.$($all_keys[$i]).write_percent) -L -Z500M -c$($profile_data.$($all_keys[$i]).workload_file_size) E:\io_stress.dat > C:\$_.txt" -ScriptType Powershell -ToolsWaitSecs 60 -GuestUser administrator -GuestPassword Dell1234 -RunAsync -Verbose -confirm:$false}
         
+        #Verify status of VM tools for all VMs
+        Write-Verbose -Message "Verify status of VM tools on all stress-test-vms" -Verbose
+        $vms = get-vm stress-test-vm*
+        foreach ($vm in $vms) { do { $stat = (Get-vm $vm).ExtensionData.Guest.ToolsStatus; write-host "$vm $stat"; Start-Sleep 2 } until ($stat -eq 'toolsOk') }
+        
+        #Invoke diskspd on each stress-test-vm
+        get-vm -Name stress-test-vm* | ForEach-Object {Invoke-VMScript -VM $_ -ScriptText  "C:\diskspd.exe -b$($profile_data.$($all_keys[$i]).block_size) -d$($profile_data.$($all_keys[$i]).duration_in_sec) -t$($profile_data.$($all_keys[$i]).threads) -o$($profile_data.$($all_keys[$i]).OIO) -h -$($profile_data.$($all_keys[$i]).access_pattern) -w$($profile_data.$($all_keys[$i]).write_percent) -L -Z500M -c$($profile_data.$($all_keys[$i]).workload_file_size) E:\io_stress.dat > C:\$_.txt" -ScriptType Powershell -ToolsWaitSecs 60 -GuestUser administrator -GuestPassword Dell1234 -RunAsync -Verbose -confirm:$false}
         
         #Test run time
         $test_duration = $profile_data.$($all_keys[$i]).duration_in_sec
 
-        #Invoke vxflex os PD perf log collect function as a background job ****** new
-        $h1 = Connect_VxFlexOS -gateway 192.168.150.100 -Credentials $Credentials
-        $SIO_logs_job = Start-Job -ScriptBlock ${Function:PD_perf_logs} -ArgumentList "192.168.150.100",$h1,"4db4512700000000",$test_duration
+        #Invoke Connect_VxFlexOS function to get authentication header
+        $auth_header = Connect_VxFlexOS -gateway $config_data.gateway -Credentials $Credentials
+        
+        #Invoke VxFlex OS PD_perf_log collect function as a background job
+        $PD_logs_job = Start-Job -ScriptBlock ${Function:PD_perf_logs} -ArgumentList $config_data.gateway ,$auth_header,$config_data.pd_id,$test_duration
         
         #Waiting till test duration
         Write-Verbose "$($all_keys[$i]): Storage stress test in progress. Test duration: $($profile_data.$($all_keys[$i]).duration_in_sec) seconds. Please wait!" -Verbose
@@ -87,9 +89,9 @@ Process {
 
         #During the test duration collect datastore logs
         $datastore_logs = datastore_stats -list1 $datastore_list -list2 $esxi_list -test_duration $test_duration
-        #Start-Sleep (($profile_data.$($all_keys[$i]).duration_in_sec)+60) -Verbose
+        
         Start-Sleep 60 -Verbose
-
+        
         #Copy diskspd logs from stress-test-vms to local machine
         Write-Verbose "Copying diskspd logs to local machine" -Verbose
         $foldername = (Get-Date).tostring("dd-MM-yyyy-hh-mm-ss")+"-"+$all_keys[$i]
@@ -100,9 +102,9 @@ Process {
         #Write datastore logs to profile folder
         $datastore_logs | Out-File -FilePath c:\temp\$parent_folder\$foldername\datastore_logs.txt -Verbose
 
-        #Write SIO logs to profile folder ***** new
-        $SIO_logs = $SIO_logs_job | Receive-Job 
-        $SIO_logs | Out-File -FilePath c:\temp\$parent_folder\$foldername\sio_logs.txt -Verbose
+        #Write PD logs to profile folder
+        $VxFlex_OS_logs = $PD_logs_job | Receive-Job 
+        $VxFlex_OS_logs | Out-File -FilePath c:\temp\$parent_folder\$foldername\sio_logs.txt -Verbose
 
         Start-Sleep 30 -Verbose
         Write-Verbose "Restarting all stress-test-vms"

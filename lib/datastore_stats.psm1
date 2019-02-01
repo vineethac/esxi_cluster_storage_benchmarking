@@ -203,25 +203,23 @@ Function PD_perf_logs {
             $PD_stat_object | Add-Member -Type NoteProperty -Name PD_ID -Value "$PD_id"
             $PD_stat_object | Add-Member -Type NoteProperty -Name Read_IOPS -Value "$read_IOPS"
             $PD_stat_object | Add-Member -Type NoteProperty -Name Write_IOPS -Value "$write_IOPS"
-            $PD_stat_object | Add-Member -Type NoteProperty -Name Read_BW_in_MB -Value "$read_bw_in_Kb/1024"
-            $PD_stat_object | Add-Member -Type NoteProperty -Name Write_BW_in_MB -Value "$write_bw_in_Kb/1024"
-
-
-
+            $PD_stat_object | Add-Member -Type NoteProperty -Name Read_BW_in_MB -Value "$($read_bw_in_Kb/1024)"
+            $PD_stat_object | Add-Member -Type NoteProperty -Name Write_BW_in_MB -Value "$($write_bw_in_Kb/1024)"
+            
             $logs2+=$PD_stat_object
             
             Start-Sleep -Seconds 5
         }
         Until ($TimeNow -ge $TimeEnd)
-        
+    }
+    End {
+
         $time_stamp =(Get-Date).tostring("dd-MM-yyyy-hh-mm-ss")
         $line_break = "********** $time_stamp **********"
         $logs2+=$line_break
         
         #Write-Verbose -Message "PD log collection completed" -Verbose
         return ($logs2 | Format-Table)
-
-        
     }
     
 }    

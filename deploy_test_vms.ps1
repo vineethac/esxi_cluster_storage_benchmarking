@@ -68,8 +68,11 @@ Process {
             #Start VM
             Get-VM -Name $VM_name | Start-VM -Verbose
             
-            #Add few seconds wait time for VMtools to load (a check to be added here)
+            #Add few seconds wait time for VMtools to load 
             Start-Sleep 5 -Verbose
+
+            #Verify status of VM tools
+            do { $stat = (Get-VM $VM_name).ExtensionData.Guest.ToolsStatus; write-host "$VM_name $stat"; Start-Sleep 2 } until ($stat -eq 'toolsOk') 
 
             #Initialize and partition stress disk
             Invoke-VMScript -VM $VM_name -ScriptText {Initialize-Disk -Number 1 -PartitionStyle GPT;
@@ -78,7 +81,7 @@ Process {
             #Format stress disk and set aus
             $aus = $config_data.disk_aus_in_bytes
             Invoke-VMScript -VM $VM_name -ScriptText "Format-Volume -DriveLetter E -FileSystem NTFS -AllocationUnitSize '$aus' -NewFileSystemLabel Test_disk" -ScriptType Powershell -GuestUser administrator -GuestPassword Dell1234 -Verbose -ToolsWaitSecs 60
-            Write-Verbose -Message "Drive E initialized partitioned and formatted as NTFS with AUS 64K" -Verbose
+            Write-Verbose -Message "Drive E initialized partitioned and formatted as NTFS with specified AUS" -Verbose
 
             #Set pvscsi queue depth to 254
             $set_pvscsi_cmd = 'REG ADD HKLM\SYSTEM\CurrentControlSet\services\pvscsi\Parameters\Device /v DriverParameter /t REG_SZ /d "RequestRingPages=32,MaxQueueDepth=254"'
