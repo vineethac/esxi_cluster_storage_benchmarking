@@ -17,6 +17,7 @@ Begin {
     
     try {
         #Connect to VCSA
+        Write-Verbose -Message "Connecting to vCenter $($config_data.vCenter). Provide vCenter creds!" -Verbose
         Connect-VIServer -Server $config_data.vCenter -ErrorAction Stop
     }
     catch {
@@ -50,12 +51,22 @@ Begin {
         Write-Error -Message "[EndRegion] Failed collecting gateway creds. Exiting!" -Verbose -ErrorAction Stop
         $PSCmdlet.ThrowTerminatingError($PSItem)
     }
+
+    #Collecting stress-test-vm guest OS creds
+    try {
+        Write-Verbose -Message "Collecting stress-test-vm guest OS Creds" -Verbose
+        $guest_os_creds = Get-Credential -Message "Enter stress-test-vm guest OS Creds" -UserName administrator
+    }
+    catch {
+        Write-Error -Message "[EndRegion] Failed collecting gateway creds. Exiting!" -Verbose -ErrorAction Stop
+        $PSCmdlet.ThrowTerminatingError($PSItem)
+    }
         
 }
 
 Process {
     #Get all profile data keys
-    $all_keys = $profile_data.GetEnumerator() | ForEach-Object {$_.Key}
+    $all_keys = $profile_data.GetEnumerator() | ForEach-Object {$_.Key} | Sort-Object
 
     #Parent folder for logs for each script run
     $parent_folder = (Get-Date).tostring("dd-MM-yyyy-hh-mm-ss")
@@ -69,7 +80,7 @@ Process {
         foreach ($vm in $vms) { do { $stat = (Get-vm $vm).ExtensionData.Guest.ToolsStatus; write-host "$vm $stat"; Start-Sleep 2 } until ($stat -eq 'toolsOk') }
         
         #Invoke diskspd on each stress-test-vm
-        get-vm -Name stress-test-vm* | ForEach-Object {Invoke-VMScript -VM $_ -ScriptText  "C:\diskspd.exe -b$($profile_data.$($all_keys[$i]).block_size) -d$($profile_data.$($all_keys[$i]).duration_in_sec) -t$($profile_data.$($all_keys[$i]).threads) -o$($profile_data.$($all_keys[$i]).OIO) -h -$($profile_data.$($all_keys[$i]).access_pattern) -w$($profile_data.$($all_keys[$i]).write_percent) -L -Z500M -c$($profile_data.$($all_keys[$i]).workload_file_size) E:\io_stress.dat > C:\$_.txt" -ScriptType Powershell -ToolsWaitSecs 60 -GuestUser administrator -GuestPassword Dell1234 -RunAsync -Verbose -confirm:$false}
+        get-vm -Name stress-test-vm* | ForEach-Object {Invoke-VMScript -VM $_ -ScriptText  "C:\diskspd.exe -b$($profile_data.$($all_keys[$i]).block_size) -d$($profile_data.$($all_keys[$i]).duration_in_sec) -t$($profile_data.$($all_keys[$i]).threads) -o$($profile_data.$($all_keys[$i]).OIO) -h -$($profile_data.$($all_keys[$i]).access_pattern) -w$($profile_data.$($all_keys[$i]).write_percent) -L -Z500M -c$($profile_data.$($all_keys[$i]).workload_file_size) E:\io_stress.dat > C:\$_.txt" -ScriptType Powershell -ToolsWaitSecs 60 -GuestCredential $guest_os_creds -RunAsync -Verbose -confirm:$false}
         
         #Test run time
         $test_duration = $profile_data.$($all_keys[$i]).duration_in_sec
@@ -95,7 +106,7 @@ Process {
         #Copy diskspd logs from stress-test-vms to local machine
         Write-Verbose "Copying diskspd logs to local machine" -Verbose
         $foldername = (Get-Date).tostring("dd-MM-yyyy-hh-mm-ss")+"-"+$all_keys[$i]
-        get-vm -Name stress-test-vm* | ForEach-Object {Copy-VMGuestFile -Source c:\$_.txt -Destination c:\temp\$parent_folder\$foldername\ -VM $_ -GuestToLocal -HostUser vineetha -HostPassword Dell1234 -GuestUser administrator -GuestPassword Dell1234 -Force -ToolsWaitSecs 120} -Verbose
+        get-vm -Name stress-test-vm* | ForEach-Object {Copy-VMGuestFile -Source c:\$_.txt -Destination c:\temp\$parent_folder\$foldername\ -VM $_ -GuestToLocal -GuestCredential $guest_os_creds -Force -ToolsWaitSecs 120} -Verbose
         
         Write-Verbose "Datastore level and VxFlex OS PD level log collection completed" -Verbose
 

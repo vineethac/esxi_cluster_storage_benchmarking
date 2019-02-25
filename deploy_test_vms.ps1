@@ -13,6 +13,7 @@ Begin {
     
     try {
         #Connect to VCSA
+        Write-Verbose -Message "Connecting to vCenter $($config_data.vCenter). Provide vCenter creds!" -Verbose
         Connect-VIServer -Server $config_data.vcenter -ErrorAction Stop
     }
     catch {
@@ -36,6 +37,16 @@ Begin {
         #Disconnect session
         Disconnect-VIServer $config_data.vCenter -Confirm:$false
         Write-Error -Message "Number of datastores should be equal to number of hosts in the cluster!" -ErrorAction Stop
+    }
+
+    #Collecting stress-test-vm guest OS creds
+    try {
+        Write-Verbose -Message "Collecting stress-test-vm guest OS Creds" -Verbose
+        $guest_os_creds = Get-Credential -Message "Enter stress-test-vm guest OS Creds" -UserName administrator
+    }
+    catch {
+        Write-Error -Message "[EndRegion] Failed collecting gateway creds. Exiting!" -Verbose -ErrorAction Stop
+        $PSCmdlet.ThrowTerminatingError($PSItem)
     }
 
     #Test VM number and parameters
@@ -76,16 +87,16 @@ Process {
 
             #Initialize and partition stress disk
             Invoke-VMScript -VM $VM_name -ScriptText {Initialize-Disk -Number 1 -PartitionStyle GPT;
-            New-Partition -DiskNumber 1 -UseMaximumSize -DriveLetter E} -ScriptType Powershell -GuestUser administrator -GuestPassword Dell1234 -Verbose -ToolsWaitSecs 60
+            New-Partition -DiskNumber 1 -UseMaximumSize -DriveLetter E} -ScriptType Powershell -GuestCredential $guest_os_creds -Verbose -ToolsWaitSecs 60
             
             #Format stress disk and set aus
             $aus = $config_data.disk_aus_in_bytes
-            Invoke-VMScript -VM $VM_name -ScriptText "Format-Volume -DriveLetter E -FileSystem NTFS -AllocationUnitSize '$aus' -NewFileSystemLabel Test_disk" -ScriptType Powershell -GuestUser administrator -GuestPassword Dell1234 -Verbose -ToolsWaitSecs 60
+            Invoke-VMScript -VM $VM_name -ScriptText "Format-Volume -DriveLetter E -FileSystem NTFS -AllocationUnitSize '$aus' -NewFileSystemLabel Test_disk" -ScriptType Powershell -GuestCredential $guest_os_creds -Verbose -ToolsWaitSecs 60
             Write-Verbose -Message "Drive E initialized partitioned and formatted as NTFS with specified AUS" -Verbose
 
             #Set pvscsi queue depth to 254
             $set_pvscsi_cmd = 'REG ADD HKLM\SYSTEM\CurrentControlSet\services\pvscsi\Parameters\Device /v DriverParameter /t REG_SZ /d "RequestRingPages=32,MaxQueueDepth=254"'
-            Invoke-VMScript -VM $VM_name -ScriptText $set_pvscsi_cmd -ScriptType Powershell -GuestUser administrator -GuestPassword Dell1234 -Verbose -ToolsWaitSecs 60
+            Invoke-VMScript -VM $VM_name -ScriptText $set_pvscsi_cmd -ScriptType Powershell -GuestCredential $guest_os_creds -Verbose -ToolsWaitSecs 60
             Write-Verbose -Message "pvscsi queue depth set to 254" -Verbose
 
             #Reboot VM
